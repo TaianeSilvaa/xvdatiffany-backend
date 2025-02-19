@@ -19,8 +19,10 @@ const auth = new google.auth.GoogleAuth({
 });
 
 const drive = google.drive({ version: "v3", auth });
+console.log("fora do upload");
 
 app.post("/upload", upload.array("file", 10), async (req, res) => {
+  console.log("entrou no upload");
   try {
     const uploadedFiles = [];
 
