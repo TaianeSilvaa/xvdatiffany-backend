@@ -1,54 +1,55 @@
 const express = require("express");
 const multer = require("multer");
 const fs = require("fs");
-const cors = require("cors"); // Adicionado para corrigir o erro de CORS
+const cors = require("cors");
 const { google } = require("googleapis");
 require("dotenv").config();
-const chave = JSON.parse(fs.readFileSync('./chave.json', 'utf-8'));
 
 const app = express();
-app.use(cors()); // Permitir requisições do frontend
+app.use(cors());
+app.use(express.json()); // Habilita JSON no body das requisições
 
 const upload = multer({ dest: "uploads/" });
 
-// Autenticação com Google Drive API
+// Autenticação com Google Drive API usando variável de ambiente
+const chave = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 const auth = new google.auth.GoogleAuth({
-  credentials: chave, // Alterado para usar JSON diretamente
+  credentials: chave,
   scopes: ["https://www.googleapis.com/auth/drive.file"],
 });
 
 const drive = google.drive({ version: "v3", auth });
 
-app.post("/upload", upload.array("file",10), async (req, res) => {
+app.post("/upload", upload.array("file", 10), async (req, res) => {
   try {
     const uploadedFiles = [];
 
-        for (const file of req.files) {
-            const fileMetadata = {
-                name: `${req.body.nome || "Anônimo"} - ${file.originalname}`, // Adiciona o nome do usuário
-                parents: [process.env.FOLDER_ID], // ID da pasta no Google Drive
-            };
+    for (const file of req.files) {
+      const fileMetadata = {
+        name: `${req.body.nome || "Anônimo"} - ${file.originalname}`,
+        parents: [process.env.FOLDER_ID],
+      };
 
-            const media = {
-                mimeType: file.mimetype,
-                body: fs.createReadStream(file.path),
-            };
+      const media = {
+        mimeType: file.mimetype,
+        body: fs.createReadStream(file.path),
+      };
 
-            const uploadedFile = await drive.files.create({
-                resource: fileMetadata,
-                media: media,
-                fields: "id, webViewLink",
-            });
+      const uploadedFile = await drive.files.create({
+        resource: fileMetadata,
+        media: media,
+        fields: "id, webViewLink",
+      });
 
-            fs.unlinkSync(file.path); // Remove o arquivo temporário
+      fs.unlinkSync(file.path);
 
-            uploadedFiles.push({
-                nome: req.body.nome || "Anônimo",
-                link: uploadedFile.data.webViewLink,
-            });
-        }
+      uploadedFiles.push({
+        nome: req.body.nome || "Anônimo",
+        link: uploadedFile.data.webViewLink,
+      });
+    }
 
-        res.json({ files: uploadedFiles });
+    res.json({ files: uploadedFiles });
   } catch (error) {
     console.error("Erro no upload:", error);
     res.status(500).send(error);
@@ -63,11 +64,10 @@ app.get("/fotos", async (req, res) => {
     });
 
     const fotos = response.data.files.map((file) => {
-      // Extrai o nome do usuário do nome do arquivo
       const id = file.id;
       const partesNome = file.name.split(" - ");
       const nomeUsuario = partesNome.length > 1 ? partesNome[0] : "Anônimo";
-      return { nome: nomeUsuario, link: file.webViewLink, id:'https://drive.google.com/thumbnail?id='+id+'&sz=w600'};
+      return { nome: nomeUsuario, link: file.webViewLink, id: `https://drive.google.com/thumbnail?id=${id}&sz=w600` };
     });
 
     res.json(fotos);
@@ -77,5 +77,6 @@ app.get("/fotos", async (req, res) => {
   }
 });
 
-
-app.listen(3001, () => console.log("Servidor rodando na porta 3001"));
+// Ajuste para rodar no Render
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
