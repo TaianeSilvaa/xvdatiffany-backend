@@ -50,6 +50,7 @@ app.post("/upload", upload.array("file", 10), async (req, res) => {
     }
 
     res.json({ files: uploadedFiles });
+    console.log("retornando:",uploadedFiles);
   } catch (error) {
     console.error("Erro no upload:", error);
     res.status(500).send(error);
